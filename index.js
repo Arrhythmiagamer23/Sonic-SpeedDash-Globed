@@ -1,40 +1,49 @@
 const http = require("http");
 const WebSocket = require("ws");
+const axios = require("axios");
 
-// Crear servidor HTTP
 const server = http.createServer((req, res) => {
-  if (req.url === "/") {
-    res.writeHead(200);
-    res.end("Servidor Globed con WebSocket activo ✅");
-  } else {
-    res.writeHead(404);
-    res.end();
-  }
+  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("Servidor SCGDPS-Globed WebSocket activo ✅");
 });
 
-// Crear servidor WebSocket usando el servidor HTTP
 const wss = new WebSocket.Server({ server });
 
-wss.on("connection", (ws) => {
-  console.log("Cliente conectado");
+wss.on("connection", ws => {
+  ws.on("message", async msg => {
+    let data;
+    try { data = JSON.parse(msg); } catch { return; }
 
-  // Enviar mensaje al cliente al conectar
-  ws.send("¡Bienvenido al servidor Globed!");
+    if (data.type === "login") {
+      const { accountID, password } = data;
 
-  // Escuchar mensajes recibidos del cliente
-  ws.on("message", (message) => {
-    console.log(`Mensaje recibido: ${message}`);
+      try {
+        const resp = await axios.post(
+          "https://starcheese.ps.fhgdps.com/checkLogin.php",
+          new URLSearchParams({ accountID, password }).toString(),
+          { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+        );
 
-    // Responder a cliente
-    ws.send(`Echo: ${message}`);
-  });
+        const { success, userID, username, error } = resp.data;
+        ws.send(JSON.stringify({
+          type: "loginResult",
+          success,
+          userID: userID || null,
+          username: username || null,
+          error: success ? undefined : error
+        }));
 
-  ws.on("close", () => {
-    console.log("Cliente desconectado");
+        if (success) {
+          console.log(`Usuario autenticado: ${username} (ID ${userID})`);
+        }
+
+      } catch (e) {
+        console.error("Error en request login:", e);
+        ws.send(JSON.stringify({ type: "loginResult", success: false, error: "Error interno" }));
+      }
+    }
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Servidor escuchando en puerto ${PORT}`);
-});
+server.listen(PORT, () => console.log(`SCGDPS-Globed activo en puerto ${PORT}`));
