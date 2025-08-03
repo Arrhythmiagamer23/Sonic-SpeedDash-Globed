@@ -1,5 +1,5 @@
 {
-  "name": "scgdps-globed-auth",
+  "name": "sonic-speeddash-globed-auth",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": { "start": "node index.js" },
